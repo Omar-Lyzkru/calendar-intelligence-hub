@@ -1,0 +1,76 @@
+{
+  "name": "calendar-intelligence-hub",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "build": "npm run build:contracts && tsc -p apps/api/tsconfig.build.json && vite build --config apps/web/vite.config.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:e2e": "playwright test",
+    "db:migrate": "prisma migrate deploy",
+    "dev": "concurrently \"tsx watch --env-file-if-exists=.env apps/api/src/server.ts\" \"vite --config apps/web/vite.config.ts\"",
+    "build:contracts": "tsc -p packages/contracts/tsconfig.build.json",
+    "start": "node --env-file-if-exists=.env dist/apps/api/src/server.js",
+    "predev": "npm run build:contracts",
+    "pretest:e2e": "npm run build",
+    "format": "prettier --write apps packages/contracts/src tests *.ts *.json docs README.md",
+    "format:check": "prettier --check apps packages/contracts/src tests *.ts *.json docs README.md",
+    "discord:smoke": "tsx tools/discord-smoke.ts"
+  },
+  "dependencies": {
+    "@azure/msal-node": "7.0.1",
+    "@discordjs/rest": "2.6.3",
+    "@discordjs/ws": "2.0.4",
+    "@js-temporal/polyfill": "0.5.1",
+    "@prisma/adapter-pg": "^6.19.3",
+    "@prisma/client": "^6.19.3",
+    "express": "5.2.1",
+    "google-auth-library": "^10.0.0",
+    "googleapis": "^171.0.0",
+    "html-to-text": "^9.0.5",
+    "pg": "^8.16.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@testing-library/react": "^16.0.0",
+    "@testing-library/user-event": "^14.0.0",
+    "@types/express": "^5.0.0",
+    "@types/html-to-text": "^9.0.0",
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/supertest": "^6.0.0",
+    "concurrently": "^10.0.5",
+    "jsdom": "^27.0.0",
+    "prettier": "^3.9.9",
+    "prisma": "^6.19.3",
+    "supertest": "^7.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.9.0",
+    "vite": "8.3.3",
+    "vitest": "5.0.3"
+  },
+  "overrides": {
+    "deepmerge-ts": "8.0.0",
+    "shell-quote": "1.11.0"
+  },
+  "allowScripts": {
+    "@prisma/client@6.19.3": true,
+    "@prisma/engines@6.19.3": true,
+    "esbuild@0.28.2": true,
+    "prisma@6.19.3": true
+  },
+  "license": "MIT"
+}

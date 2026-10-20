@@ -1,0 +1,71 @@
+# Decisions
+
+Approved decisions that shape the current code and repository. Each entry states the decision, why it was made and what it costs. Implementation details are in [ARCHITECTURE.md](ARCHITECTURE.md).
+
+## Product invariants
+
+| Decision                                                                                  | Reason                                                       | Cost / limit                                                                                                                                       |
+| ----------------------------------------------------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Priority order: no duplicate Calendar events, no invented facts, privacy, then automation | A wrong or duplicated commitment is worse than a missed one  | Conservative extraction leaves more items for manual review                                                                                        |
+| Deterministic extraction and policy; no LLM                                               | Decisions must be explainable and reproducible from evidence | Natural-language phrasing outside supported patterns stays unresolved. An LLM fallback is a possible future direction, not approved or implemented |
+| Unknown facts stay unknown                                                                | Guessed years, zones or durations create silent errors       | Users answer focused questions or correct drafts                                                                                                   |
+| Confidence is explanation, never authorization                                            | Scores are heuristics, not calibrated accuracy               | Automation needs explicit rules plus complete checks                                                                                               |
+
+## Architecture and stack
+
+| Decision                                                                                        | Reason                                                                       | Cost / limit                                                             |
+| ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Modular monolith: one Express API, one PostgreSQL database, React/Vite frontend, npm workspaces | Boundaries stay visible and traceable without distributed-system overhead    | Scaling ingestion independently would need later extraction into workers |
+| PostgreSQL from the start, Prisma with reviewed SQL migrations                                  | Real transactions, constraints, timezone-aware timestamps and advisory locks | Requires a local PostgreSQL server                                       |
+| Prisma pinned to patched 6.19.3, with `deepmerge-ts` and `shell-quote` overrides                | Dependency-audit remediation while avoiding preview releases                 | A later major Prisma upgrade is separate work                            |
+| Zod at HTTP and provider boundaries; shared contracts package                                   | TypeScript types do not validate network input                               | Schemas must be maintained alongside types                               |
+| Shared contracts compiled before dev, build and browser tests                                   | The compiled server needs runtime package exports                            | Extra build step                                                         |
+| One `NormalizedMessage` and one intelligence pipeline for all providers                         | Avoids divergent per-provider logic                                          | Provider-specific context must fit the shared shape                      |
+
+## Calendar writes
+
+| Decision                                                                                                             | Reason                                                                 | Cost / limit                                           |
+| -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------ |
+| Approval freezes an immutable snapshot; failed writes retry creation only                                            | Approval must bind reviewed facts, and failures must not lose approval | Changing an approved item needs a new review           |
+| Durable write intent with stable event ID, payload hash, lease and claim token; network call outside DB transactions | Lost responses are reconciled instead of blindly re-inserted           | Not atomic with unrelated Calendar clients             |
+| Payload hash covers commitment fields, excluding internal category and offset formatting                             | Google can normalize equivalent instants; category is internal         | Future hash changes need versioning                    |
+| Write only to the account's primary calendar; no automatic updates, deletions or rescheduling                        | Smallest write surface that delivers value                             | Changed events need manual handling in Google Calendar |
+
+## Providers and scopes
+
+| Decision                                                                                    | Reason                                                               | Cost / limit                                                                                           |
+| ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Google identity plus `gmail.readonly` and `calendar.events.owned`, requested per capability | Bodies need read access; full calendar administration is unnecessary | `gmail.readonly` is a restricted scope; selecting messages is an app restriction, not a narrower grant |
+| Outlook via a single-tenant confidential MSAL Web client with delegated `Mail.Read`         | Keeps tokens server-side; no personal-account or multi-tenant model  | Organizational admin consent can block use; never bypass tenant policy                                 |
+| Discord via official channel Follow into a private relay read by a read-only bot            | No self-bot, user token or scraping; minimal permissions             | Real Follow delivery behavior must still be observed                                                   |
+| Credentials backend-only and encrypted at rest with an environment-held key                 | Database contents alone do not expose provider access                | Losing or changing the key requires reconnecting providers                                             |
+| Source content retained 30 days, enforced on read and at startup                            | Minimizes stored private text                                        | Content already shown in an open browser is not retracted                                              |
+
+## Automation
+
+| Decision                                                                                             | Reason                                                             | Cost / limit                                                    |
+| ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------- |
+| Policy off by default; explicit Auto/Ask/Skip rules; opt-in timestamps prevent historical enrollment | Users choose exactly what may happen automatically                 | Requires deliberate setup                                       |
+| One-time user permission never changes a rule                                                        | Avoids silent policy expansion                                     | More questions for unmatched items                              |
+| Server-only `AUTOMATION_LIVE_WRITES_ENABLED` gate, default false                                     | A separate operator switch protects against accidental live writes | Live automatic creation needs a deliberate configuration change |
+| User-scoped advisory locks serialize manual and automatic actions                                    | Prevents duplicate writes across processes                         | Actions for one user run sequentially                           |
+
+## Verification
+
+| Decision                                                                     | Reason                                                     | Cost / limit                                                   |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------- |
+| Synthetic provider gateways with real PostgreSQL, HTTP, sessions and browser | Tests run without real accounts and cannot touch real data | Synthetic results do not establish live provider compatibility |
+| Integration and browser tests require a separate `_test` database            | Destructive fixtures must never touch meaningful data      | Each worker needs its own disposable database                  |
+
+## Repository and release
+
+| Decision                                                                                                                                                                                                                                                               | Reason                                                                                         | Cost / limit                                                                                               |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| **MIT license**                                                                                                                                                                                                                                                        | Owner-selected permissive license for a portfolio project                                      | Others may reuse the code with attribution and no warranty                                                 |
+| **Separate clean public repository.** The public repository is built independently from the original private development repository, which stays private as a historical archive. Private Git history is not imported                                                  | Original history contained personal identity metadata that cannot be removed by ordinary edits | Public history starts at a fresh initial commit; detailed development history stays in the private archive |
+| **Sanitized `main` only.** The initial public repository contains one reviewed `main` branch, with no imported branches, tags or pull-request refs                                                                                                                     | Every original branch carried the same history exposure                                        | Earlier branch structure is not public                                                                     |
+| **Useful public engineering documentation.** Keep genuine source, meaningful tests, safe configuration and technically useful docs; exclude private operational material, provider data, secrets, personal logs and raw agent-session records                          | Public material should be useful and safe, judged by content                                   | Dated phase checkpoints, plans and execution ledgers remain private                                        |
+| **Identity and path sanitization.** Public artifacts, including commit metadata, contain no personal email, private identifiers or personal OS paths; commits use the GitHub noreply identity                                                                          | Prevents personal data exposure through files or Git objects                                   | Contributors must configure a noreply address before committing                                            |
+| **Bounded residual uncertainty.** Uncertainty about inaccessible old private copies and hosted caches is accepted; known publicly retrievable sensitive data, unresolved history contamination, uninvestigated credential exposure or insufficient verification is not | Absolute guarantees are not possible; known risks must still be resolved                       | Verification coverage must be documented with each release review                                          |
+
+**Approved repository migration (not yet executed).** The original private development repository will be renamed and retained privately as the historical archive. This repository will be created on GitHub as `Omar-Lyzkru/calendar-intelligence-hub` and will initially be private. The GitHub migration and the later change to public visibility are separate owner-authorized steps; neither has been performed.

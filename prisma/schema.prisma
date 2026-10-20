@@ -1,0 +1,263 @@
+generator client {
+ provider = "prisma-client-js"
+}
+datasource db {
+ provider = "postgresql"
+ url = env("DATABASE_URL")
+}
+model User {
+ id String @id @default(uuid()) @db.Uuid
+ googleSubject String @unique
+ email String
+ timezone String @default("America/Chicago")
+ sessions Session[]
+ authorization GoogleAuthorization?
+ microsoftAuthorization MicrosoftAuthorization?
+ discordRelay DiscordRelay?
+ connections SourceConnection[]
+ messages NormalizedMessage[]
+ reviews ReviewItem[]
+ automationPolicy AutomationPolicy?
+ automationDecisions AutomationDecision[]
+ automationQuestions AutomationQuestion[]
+ ingestionPolls IngestionPoll[]
+ history HistoryEntry[]
+}
+model Session {
+ id String @id
+ userId String? @db.Uuid
+ user User? @relation(fields:[userId], references:[id], onDelete:Cascade)
+ csrf String
+ expiresAt DateTime @db.Timestamptz(3)
+ states OAuthState[]
+}
+model OAuthState {
+ stateHash String @id
+ sessionId String
+ session Session @relation(fields:[sessionId], references:[id], onDelete:Cascade)
+ intent String
+ nonce String
+ verifier String
+ authorizationRevision Int?
+ expiresAt DateTime @db.Timestamptz(3)
+}
+model GoogleAuthorization {
+ id String @id @default(uuid()) @db.Uuid
+ userId String @unique @db.Uuid
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+ subject String
+ refreshToken String?
+ scopes String[]
+ status String @default("connected")
+ connections SourceConnection[]
+}
+model SourceConnection {
+ id String @id @default(uuid()) @db.Uuid
+ userId String @db.Uuid
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+ authorizationId String? @db.Uuid
+ authorization GoogleAuthorization? @relation(fields:[authorizationId],references:[id],onDelete:Cascade)
+ microsoftAuthorizationId String? @db.Uuid
+ microsoftAuthorization MicrosoftAuthorization? @relation(fields:[microsoftAuthorizationId],references:[id],onDelete:Cascade)
+ discordRelayId String? @db.Uuid
+ discordRelay DiscordRelay? @relation(fields:[discordRelayId],references:[id],onDelete:Cascade)
+ ingestionPoll IngestionPoll?
+ observations DiscordObservation[]
+ provider String @default("gmail")
+ externalAccountId String
+ status String @default("connected")
+ messages NormalizedMessage[]
+ attempts ProcessingAttempt[]
+ @@unique([userId,provider])
+}
+model MicrosoftAuthorization {
+ id String @id @default(uuid()) @db.Uuid
+ userId String @unique @db.Uuid
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+ tenantId String
+ accountId String?
+ tokenCache String?
+ scopes String[]
+ status String @default("connected")
+ revision Int @default(1)
+ connections SourceConnection[]
+}
+model NormalizedMessage {
+ id String @id @default(uuid()) @db.Uuid
+ userId String @db.Uuid
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+ sourceConnectionId String @db.Uuid
+ connection SourceConnection @relation(fields:[sourceConnectionId],references:[id],onDelete:Cascade)
+ externalId String
+ source String
+ sender String?
+ subject String?
+ content String?
+ receivedAt DateTime @db.Timestamptz(3)
+ ingestedAt DateTime @db.Timestamptz(3)
+ expiresAt DateTime @db.Timestamptz(3)
+ sourceUrl String?
+ metadata Json
+ normalizationVersion Int
+ status String
+ automationDecision AutomationDecision?
+ observation DiscordObservation?
+ detected DetectedEvent?
+ attempts ProcessingAttempt[]
+ @@unique([sourceConnectionId,externalId])
+ @@index([userId,expiresAt])
+}
+model DetectedEvent {
+ id String @id @default(uuid()) @db.Uuid
+ messageId String @unique @db.Uuid
+ message NormalizedMessage @relation(fields:[messageId],references:[id],onDelete:Cascade)
+ candidate Json
+ version Int @default(1)
+ review ReviewItem?
+}
+model ReviewItem {
+ id String @id @default(uuid()) @db.Uuid
+ userId String @db.Uuid
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+ detectedEventId String @unique @db.Uuid
+ detectedEvent DetectedEvent @relation(fields:[detectedEventId],references:[id],onDelete:Cascade)
+ draft Json
+ revision Int @default(1)
+ status String @default("needs_review")
+ approvedSnapshot Json?
+ approvedAt DateTime? @db.Timestamptz(3)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ automationDecision AutomationDecision?
+ write CalendarEvent?
+ @@index([userId,createdAt])
+}
+model CalendarEvent {
+ id String @id @default(uuid()) @db.Uuid
+ reviewItemId String @unique @db.Uuid
+ review ReviewItem @relation(fields:[reviewItemId],references:[id],onDelete:Cascade)
+ calendarId String @default("primary")
+ providerEventId String @unique
+ payload Json
+ payloadHash String
+ state String @default("writing")
+ leaseUntil DateTime @db.Timestamptz(3)
+ claimToken String
+ receipt Json?
+ errorCode String?
+}
+model ProcessingAttempt {
+ id String @id @default(uuid()) @db.Uuid
+ sourceConnectionId String @db.Uuid
+ connection SourceConnection @relation(fields:[sourceConnectionId],references:[id],onDelete:Cascade)
+ externalId String
+ messageId String? @db.Uuid
+ message NormalizedMessage? @relation(fields:[messageId],references:[id],onDelete:SetNull)
+ stage String
+ outcome String
+ errorCode String?
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+}
+model HistoryEntry {
+ id String @id @default(uuid()) @db.Uuid
+ userId String @db.Uuid
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+ messageId String? @db.Uuid
+ reviewId String? @db.Uuid
+ action String
+ reason String?
+ actor String @default("system")
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ @@index([userId,createdAt])
+}
+
+model DiscordRelay {
+ id String @id @default(uuid()) @db.Uuid
+ userId String @unique @db.Uuid
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+ guildId String @unique
+ channelIds String[]
+ generation Int @default(1)
+ status String @default("connected")
+ connections SourceConnection[]
+}
+model DiscordObservation {
+ id String @id @default(uuid()) @db.Uuid
+ sourceConnectionId String @db.Uuid
+ connection SourceConnection @relation(fields:[sourceConnectionId],references:[id],onDelete:Cascade)
+ externalId String
+ channelId String
+ messageId String? @unique @db.Uuid
+ message NormalizedMessage? @relation(fields:[messageId],references:[id],onDelete:SetNull)
+ status String
+ errorCode String?
+ sourceState String @default("current")
+ sourceRevision Int @default(1)
+ acknowledgedRevision Int @default(1)
+ observedEditedAt DateTime? @db.Timestamptz(3)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ @@unique([sourceConnectionId,externalId])
+}
+
+model AutomationPolicy {
+ userId String @id @db.Uuid
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+ revision Int @default(1)
+ enabled Boolean @default(false)
+ enabledAt DateTime? @db.Timestamptz(3)
+ pollGmail Boolean @default(false)
+ gmailPollingEnabledAt DateTime? @db.Timestamptz(3)
+ rules Json @default("[]")
+}
+model AutomationDecision {
+ id String @id @default(uuid()) @db.Uuid
+ userId String @db.Uuid
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+ messageId String @unique @db.Uuid
+ message NormalizedMessage @relation(fields:[messageId],references:[id],onDelete:Cascade)
+ reviewId String? @unique @db.Uuid
+ review ReviewItem? @relation(fields:[reviewId],references:[id],onDelete:Cascade)
+ reviewRevision Int
+ policyRevision Int
+ sourceRevision Int @default(1)
+ decision String
+ reason String
+ evidence Json
+ confirmedFields String[] @default([])
+ confirmedRevision Int?
+ duplicateFingerprint String?
+ conflictFingerprint String?
+ questions AutomationQuestion[]
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ @@index([userId,updatedAt])
+}
+model AutomationQuestion {
+ id String @id @default(uuid()) @db.Uuid
+ userId String @db.Uuid
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+ decisionId String @db.Uuid
+ decision AutomationDecision @relation(fields:[decisionId],references:[id],onDelete:Cascade)
+ kind String
+ reviewRevision Int
+ policyRevision Int
+ sourceRevision Int
+ status String @default("open")
+ advisoryFingerprint String?
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ closedAt DateTime? @db.Timestamptz(3)
+ @@index([decisionId,status])
+}
+model IngestionPoll {
+ id String @id @default(uuid()) @db.Uuid
+ userId String @db.Uuid
+ user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+ connectionId String @unique @db.Uuid
+ connection SourceConnection @relation(fields:[connectionId],references:[id],onDelete:Cascade)
+ watermark DateTime @db.Timestamptz(3)
+ windowEnd DateTime? @db.Timestamptz(3)
+ pageToken String?
+ pendingIds String[] @default([])
+ failures Int @default(0)
+ status String @default("ready")
+ nextRunAt DateTime @default(now()) @db.Timestamptz(3)
+}

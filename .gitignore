@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+coverage/
+*.log
+.superpowers/
+private/
+playwright-report/
+test-results/
+
+client_secret*.json
+credentials*.json
+token*.json
