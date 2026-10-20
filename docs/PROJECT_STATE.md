@@ -6,7 +6,7 @@ Current verified state of the implementation. Design rationale is in [DECISIONS.
 
 A local-development project, not production-ready and not deployed. All three message sources, the shared deterministic intelligence pipeline, review, duplicate/conflict advisories, safe Calendar creation and conservative automation are implemented. An LLM fallback, production operations (monitoring, CI, deployment) and portfolio media are not implemented.
 
-This repository is a sanitized release candidate created from a private development repository, which remains the historical archive. It starts from a single fresh commit. It has not been published, and active development has not yet moved here.
+This repository is a sanitized release candidate created from a separate private development repository, which remains private as the historical archive. It starts from a single fresh commit. The private GitHub migration is complete: this repository is hosted privately on GitHub and is the active development home. It has not been made public; public release is a separate owner-authorized step that has not been performed.
 
 ## Capability status
 
