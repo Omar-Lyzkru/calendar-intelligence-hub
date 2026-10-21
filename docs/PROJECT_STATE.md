@@ -6,7 +6,9 @@ Current verified state of the implementation. Design rationale is in [DECISIONS.
 
 A local-development project, not production-ready and not deployed. All three message sources, the shared deterministic intelligence pipeline, review, duplicate/conflict advisories, safe Calendar creation and conservative automation are implemented. An LLM fallback, production operations (monitoring, CI, deployment) and portfolio media are not implemented.
 
-This repository is a sanitized release candidate created from a separate private development repository, which remains private as the historical archive. It starts from a single fresh commit. The private GitHub migration is complete: this repository is hosted privately on GitHub and is the active development home. It has not been made public; public release is a separate owner-authorized step that has not been performed.
+This is a sanitized repository built independently from a separate private development repository, which remains private as the historical archive. Its history starts from a fresh initial commit. It is public on GitHub and is the authoritative home for active development; the owner-authorized public release is complete.
+
+GitHub secret scanning, secret-scanning push protection, private vulnerability reporting and Dependabot alerts are enabled for this repository; Dependabot security updates are not. These controls detect supported secret patterns, block new pushes containing them, report known-vulnerable dependencies and provide the private reporting channel described in [SECURITY.md](../SECURITY.md). They do not prove that no secret or vulnerability exists.
 
 ## Capability status
 
@@ -20,9 +22,9 @@ This repository is a sanitized release candidate created from a separate private
 | Automation policy, questions, activity, Gmail polling                   | Implemented     | **Live polling and automatic Calendar creation unverified.** No real automatic write has been performed                                            |
 | LLM fallback                                                            | Not implemented | —                                                                                                                                                  |
 
-## Verification of this candidate
+## Verification of the released code
 
-Run on Windows with Node.js 24.21.0, npm 11.19.0 and PostgreSQL 17, from a clean `npm ci` of the committed lockfile. Providers were synthetic; the database was a new empty disposable `_test` database.
+Recorded against the release candidate; later commits changed only documentation and checkout line-ending configuration, not application code. Run on Windows with Node.js 24.21.0, npm 11.19.0 and PostgreSQL 17, from a clean `npm ci` of the committed lockfile. Providers were synthetic; the database was a new empty disposable `_test` database.
 
 | Check                                      | Result                                           |
 | ------------------------------------------ | ------------------------------------------------ |
